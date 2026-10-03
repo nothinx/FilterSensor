@@ -1,0 +1,15 @@
+#######################################
+# FilterSensor
+#######################################
+
+RataRataBergerak	KEYWORD1
+FilterMedian	KEYWORD1
+FilterEMA	KEYWORD1
+FilterKalman	KEYWORD1
+
+saring	KEYWORD2
+hasil	KEYWORD2
+reset	KEYWORD2
+alphaDariWaktu	KEYWORD2
+aturAlpha	KEYWORD2
+aturNoise	KEYWORD2
