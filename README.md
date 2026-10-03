@@ -85,6 +85,36 @@ cd extras/simulasi
 python gambar.py   # butuh g++ dan matplotlib
 ```
 
+## Kecepatan & memori
+
+Diukur dengan simavr (simulator ATmega328P yang akurat per siklus) di Arduino Uno 16 MHz: 64 bacaan sekitar 500 ± 20 dengan sesekali lonjakan, buffer sudah penuh. Angka = siklus per `saring()` (atau `add()` + baca hasil untuk pesaing).
+
+| Filter | FilterSensor 1.0.1 | FilterSensor 1.0.0 | Pesaing |
+|---|---|---|---|
+| Rata-rata 8 | 659 siklus (41 µs) | 1.070 (67 µs) | RunningAverage 0.4.9: 1.054 (`getFastAverage`), 2.269 (`getAverage`); movingAvg 2.3.2 (`int`): 789 |
+| Median 5 | 360 (22 µs) | 685 (43 µs) | RunningMedian 0.3.11: 1.255 (78 µs) |
+| Median 15 | 606 (38 µs) | 1.343 (84 µs) | RunningMedian 0.3.11: 3.772 (236 µs) |
+| EMA | 474 (30 µs) | 514 (32 µs) | EWMA 1.0.3: 462 (29 µs) |
+| Kalman 1D | 1.575 (98 µs) | 1.725 (108 µs) | SimpleKalmanFilter 0.2.0: 1.798 (112 µs) |
+
+| Filter | RAM per objek | Flash tambahan | Pesaing (RAM, flash) |
+|---|---|---|---|
+| `RataRataBergerak<8>` | 38 B | 1.236 B | RunningAverage(8): 22 B + 32 B heap, 2.004 B |
+| `FilterMedian<5>` | 42 B | 1.034 B | RunningMedian(5): 9 B + 25 B heap, 1.950 B |
+| `FilterEMA` | 9 B | 788 B | EWMA: 9 B, 782 B |
+| `FilterKalman` | 16 B | 1.348 B | SimpleKalmanFilter: 24 B, 1.192 B |
+
+Waktu per `saring()`: rata-rata, EMA, dan Kalman O(1); rata-rata bergerak menjumlah ulang buffer sekali tiap N sampel (rata-rata tetap O(1), anti-drift); median O(N) karena menyisipkan satu nilai ke daftar terurut (pesaing mengurutkan ulang saat `getMedian()`). Memori O(N) untuk rata-rata dan median, tetap di RAM statis tanpa `malloc()`.
+
+Optimasi di 1.0.1 (hasil filter tidak berubah, diuji di `extras/test`):
+- Median menyimpan pola bit float sebagai bilangan bulat yang urutannya sama, sehingga pembanding di loop penyisipan adalah pembanding integer, bukan panggilan float software. Median 2× lebih cepat.
+- Rata-rata dengan buffer penuh dikali `1/N` (konstanta) alih-alih dibagi N.
+- Pemeriksaan `NAN` lewat pola bit, bukan `isnan()`.
+
+Di mana kita kalah: EWMA 12 siklus lebih cepat karena tidak menolak `NAN` dan tidak memakai sampel pertama sebagai titik awal. SimpleKalmanFilter ±150 B lebih kecil di flash. `RataRataBergerak<8>` sedikit lebih besar di flash daripada 1.0.0 (+156 B) demi kecepatan di atas. Di ESP32 dan STM32 `src/` bebas promosi `float` → `double` (`-Wdouble-promotion`).
+
+Mengulang pengukuran: sketch `extras/benchmark/FilterSensorBenchmark` (butuh simavr). Pesaing diunduh dari rilis resminya, bukan dipasang.
+
 ## Memilih filter
 
 | Masalah | Filter |
@@ -184,7 +214,7 @@ g++ -std=c++11 -I. -I../../src uji.cpp -o uji && ./uji
 
 ## Status
 
-Versi 1.0.0 sudah lolos uji logika otomatis di PC dan compile tanpa warning di Uno, ESP32, dan STM32 Bluepill (CI menguji 7 board). Library ini murni perhitungan, jadi tidak bergantung pada hardware tertentu. Contoh yang memakai sensor belum dicoba dengan sensor sungguhan. Jika menemukan masalah, silakan buka *issue* di GitHub.
+Versi 1.0.1 sudah lolos uji logika otomatis di PC dan compile tanpa warning di Uno, ESP32, dan STM32 Bluepill (CI menguji 7 board). Library ini murni perhitungan, jadi tidak bergantung pada hardware tertentu. Contoh yang memakai sensor belum dicoba dengan sensor sungguhan. Jika menemukan masalah, silakan buka *issue* di GitHub.
 
 ## Lisensi
 

@@ -59,6 +59,20 @@ Hollow = noise only, filled = noise + spikes. Median followed by EMA is the smoo
 
 Smaller alpha or larger N: smoother but slower. Regenerate with `cd extras/simulasi && python gambar.py` (needs g++ and matplotlib).
 
+## Speed & memory
+
+Measured with simavr (cycle-accurate ATmega328P simulator), Arduino Uno 16 MHz, full buffers. Cycles per `saring()` (filter) call.
+
+| Filter | FilterSensor 1.0.1 | 1.0.0 | Competitor |
+|---|---|---|---|
+| Moving average 8 | 659 (41 µs) | 1,070 | RunningAverage 0.4.9: 1,054 (`getFastAverage`), 2,269 (`getAverage`) |
+| Median 5 | 360 (22 µs) | 685 | RunningMedian 0.3.11: 1,255 |
+| Median 15 | 606 (38 µs) | 1,343 | RunningMedian 0.3.11: 3,772 |
+| EMA | 474 (30 µs) | 514 | EWMA 1.0.3: 462 |
+| Kalman 1D | 1,575 (98 µs) | 1,725 | SimpleKalmanFilter 0.2.0: 1,798 |
+
+RAM per object: 38 / 42 / 9 / 16 B, no heap (RunningAverage and RunningMedian use `malloc()`). Median is O(N) per sample (insertion into a sorted list), the others O(1). Since 1.0.1 the median compares float bit patterns as integers (2× faster) and the full moving average multiplies by `1/N`. EWMA is 12 cycles faster (no `NAN` rejection). Benchmark sketch: `extras/benchmark/FilterSensorBenchmark`.
+
 ## Function reference
 
 | Indonesian | English | Notes |
@@ -80,7 +94,7 @@ Smaller alpha or larger N: smoother but slower. Regenerate with `cd extras/simul
 
 ## Status
 
-Version 1.0.0 passes automated logic tests on PC and compiles without warnings on Uno, ESP32, and STM32 Bluepill (CI covers 7 boards). The library is pure math. The sensor examples have **not yet been tried with real sensors**.
+Version 1.0.1 passes automated logic tests on PC and compiles without warnings on Uno, ESP32, and STM32 Bluepill (CI covers 7 boards). The library is pure math. The sensor examples have **not yet been tried with real sensors**.
 
 ## License
 
