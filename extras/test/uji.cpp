@@ -75,7 +75,10 @@ int main() {
     FilterMedian<7> m;
     float riwayat[7];
     for (int i = 0; i < 5000; i++) {
-      float x = (float)(int)(seragam() * 20); // banyak nilai kembar
+      // Banyak nilai kembar, lalu negatif/pecahan, ±0 dan ±tak hingga: median disimpan
+      // sebagai kunci bilangan bulat, jadi urutan tanda dan eksponen harus tetap benar.
+      float x = i < 2500 ? (float)(int)(seragam() * 20) : (seragam() - 0.5f) * 2000;
+      if (i >= 2500 && i % 50 == 0) x = (i / 50 % 4 == 0) ? -0.0f : (i / 50 % 4 == 1) ? 0.0f : (i / 50 % 4 == 2) ? INFINITY : -INFINITY;
       riwayat[i % 7] = x;
       float h = m.saring(x);
       int n = i < 7 ? i + 1 : 7;

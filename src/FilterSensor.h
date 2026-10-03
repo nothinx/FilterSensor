@@ -10,6 +10,19 @@
 #pragma once
 #include <Arduino.h>
 #include <math.h>
+#include <string.h>
+
+namespace filtersensor {
+// Bit float sebagai bilangan bulat. Dipakai karena di AVR (dan ARM tanpa FPU)
+// isnan() dan pembanding float adalah panggilan fungsi software, sedangkan
+// pembanding bilangan bulat hanya beberapa instruksi.
+inline uint32_t bitFloat(float x) { uint32_t b; memcpy(&b, &x, 4); return b; }
+inline bool bukanAngka(float x) { return (bitFloat(x) & 0x7FFFFFFFUL) > 0x7F800000UL; }
+// Kunci urut: urutan int32 sama dengan urutan float (kecuali -0 < +0, yang tidak
+// mengubah hasil median). Fungsi ini kebalikan dirinya sendiri.
+inline int32_t kunci(int32_t b) { return b < 0 ? b ^ 0x7FFFFFFFL : b; }
+inline float dariKunci(int32_t k) { float x; k = kunci(k); memcpy(&x, &k, 4); return x; }
+} // namespace filtersensor
 
 // Rata-rata N sampel terakhir. Bagus untuk noise acak, lemah terhadap lonjakan.
 template <uint8_t N>
@@ -18,7 +31,7 @@ class RataRataBergerak {
 
 public:
   float saring(float x) {
-    if (isnan(x)) return hasil();
+    if (filtersensor::bukanAngka(x)) return hasil();
     if (_n < N) _n++;
     else _jumlah -= _buf[_i];
     _buf[_i] = x;
@@ -31,7 +44,9 @@ public:
     }
     return hasil();
   }
-  float hasil() const { return _n ? _jumlah / _n : 0; } // rata-rata sampel yang sudah masuk
+  // Rata-rata sampel yang sudah masuk. Saat buffer penuh dikali 1/N (konstanta
+  // compile) karena pembagian float jauh lebih lambat daripada perkalian.
+  float hasil() const { return _n == N ? _jumlah * (1.0f / N) : _n ? _jumlah / _n : 0; }
   void reset() { _i = _n = 0; _jumlah = 0; }
 
 private:
@@ -48,7 +63,9 @@ class FilterMedian {
 
 public:
   float saring(float x) {
-    if (isnan(x)) return hasil();
+    if (filtersensor::bukanAngka(x)) return hasil();
+    // Disimpan sebagai kunci bilangan bulat: pembanding jauh lebih cepat daripada float.
+    int32_t k = filtersensor::kunci((int32_t)filtersensor::bitFloat(x));
     uint8_t j;
     if (_n < N) {
       j = _n++;
@@ -57,23 +74,24 @@ public:
       j = 0;
       while (_urut[j] != _buf[_i]) j++;
     }
-    _buf[_i] = x;
+    _buf[_i] = k;
     if (++_i == N) _i = 0;
-    while (j > 0 && _urut[j - 1] > x) { _urut[j] = _urut[j - 1]; j--; }
-    while (j + 1 < _n && _urut[j + 1] < x) { _urut[j] = _urut[j + 1]; j++; }
-    _urut[j] = x;
+    while (j > 0 && _urut[j - 1] > k) { _urut[j] = _urut[j - 1]; j--; }
+    while (j + 1 < _n && _urut[j + 1] < k) { _urut[j] = _urut[j + 1]; j++; }
+    _urut[j] = k;
     return hasil();
   }
   // Median sampel yang sudah masuk; jumlah genap (buffer belum penuh) = rata-rata dua nilai tengah.
   float hasil() const {
     if (!_n) return 0;
-    return (_n & 1) ? _urut[_n / 2] : (_urut[_n / 2 - 1] + _urut[_n / 2]) / 2;
+    float tengah = filtersensor::dariKunci(_urut[_n / 2]);
+    return (_n & 1) ? tengah : (filtersensor::dariKunci(_urut[_n / 2 - 1]) + tengah) / 2;
   }
   void reset() { _i = _n = 0; }
 
 private:
-  float _buf[N];  // urutan datang
-  float _urut[N]; // urutan nilai
+  int32_t _buf[N];  // kunci, urutan datang
+  int32_t _urut[N]; // kunci, urutan nilai
   uint8_t _i = 0, _n = 0;
 };
 
@@ -90,7 +108,7 @@ public:
   }
 
   float saring(float x) {
-    if (isnan(x)) return _hasil;
+    if (filtersensor::bukanAngka(x)) return _hasil;
     _hasil = _ada ? _hasil + _alpha * (x - _hasil) : x; // sampel pertama langsung dipakai
     _ada = true;
     return _hasil;
@@ -116,7 +134,7 @@ public:
   FilterKalman(float noiseUkur, float noiseProses) { aturNoise(noiseUkur, noiseProses); }
 
   float saring(float x) {
-    if (isnan(x)) return _hasil;
+    if (filtersensor::bukanAngka(x)) return _hasil;
     if (_p < 0) { // sampel pertama
       _hasil = x;
       _p = _r;
