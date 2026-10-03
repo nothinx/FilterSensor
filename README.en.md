@@ -43,6 +43,22 @@ Logic test on PC (true value 100, noise σ = 5, fixed seed; *+spikes* adds 5% ou
 | `FilterKalman(5, 1)` | 1.61 | 13.63 | 12 | 16 B |
 | median 5 + EMA 0.3 | 1.94 | 1.88 | 9 | 51 B |
 
+## Simulation results
+
+PC simulation with the same synthetic signal as the table above (not a hardware measurement).
+
+![Raw readings with spikes and a 0 to 100 step, and the output of five filters](extras/gambar/sinyal-filter.svg)
+
+The true value steps from 0 to 100 at sample 60. The median ignores the spikes; moving average, EMA, and Kalman are pulled by every outlier.
+
+![RMS error versus lag for each filter, with and without spikes](extras/gambar/galat-vs-tunda.svg)
+
+Hollow = noise only, filled = noise + spikes. Median followed by EMA is the smoothest spike-proof option, at 9 samples of lag.
+
+![RMS error and lag for several EMA alphas and moving-average sizes](extras/gambar/parameter.svg)
+
+Smaller alpha or larger N: smoother but slower. Regenerate with `cd extras/simulasi && python gambar.py` (needs g++ and matplotlib).
+
 ## Function reference
 
 | Indonesian | English | Notes |

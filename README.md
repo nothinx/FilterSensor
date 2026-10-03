@@ -62,6 +62,29 @@ void loop() {
 
 Filter tidak memakai waktu sendiri. Satu panggilan `saring()` = satu sampel, jadi panggil dengan selang waktu yang tetap (mis. tiap 20 ms dengan `millis()`).
 
+## Hasil simulasi
+
+Semua grafik adalah **simulasi di PC** dengan sinyal buatan yang sama seperti tabel di bagian *Memilih filter* (noise simpangan baku 5, 5% lonjakan ±200, seed tetap), bukan pengukuran sensor sungguhan.
+
+![Bacaan mentah dengan lonjakan dan langkah 0 ke 100, serta hasil lima filter: median membuang lonjakan, rata-rata, EMA, dan Kalman ikut tertarik](extras/gambar/sinyal-filter.svg)
+
+Nilai sebenarnya melompat dari 0 ke 100 di sampel 60. Median (dan median lalu EMA) tidak bereaksi pada lonjakan, sedangkan rata-rata bergerak, EMA, dan Kalman ikut tertarik setiap kali ada bacaan nyasar. Error RMS di judul panel dihitung dari 2000 sampel seperti tabel di bawah.
+
+![Error RMS terhadap tunda tiap filter, dengan dan tanpa lonjakan](extras/gambar/galat-vs-tunda.svg)
+
+Titik kosong = hanya noise, titik penuh = noise + lonjakan. Garis vertikal panjang berarti filter itu rentan lonjakan. Median lalu EMA paling halus di antara yang tahan lonjakan, dengan tunda 9 sampel.
+
+![Error RMS dan tunda untuk berbagai alpha FilterEMA dan N RataRataBergerak](extras/gambar/parameter.svg)
+
+Alpha lebih kecil atau N lebih besar membuat hasil lebih halus tetapi lebih lambat mengikuti perubahan. Pada error yang sama, rata-rata bergerak sedikit lebih cepat daripada EMA, tetapi EMA hanya butuh 9 byte RAM.
+
+Grafik dibuat dari simulasi di PC yang menjalankan kode library ini (`extras/simulasi`):
+
+```sh
+cd extras/simulasi
+python gambar.py   # butuh g++ dan matplotlib
+```
+
 ## Memilih filter
 
 | Masalah | Filter |
